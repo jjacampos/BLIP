@@ -1,0 +1,29 @@
+comet_root: '/fsx/jacampos/data/comet/split_v2/'
+coco_anns: '/data/datasets01/COCO/060817/annotations/instances_train2014.json'
+coco_root: '/data/datasets01/COCO/060817/train2014/'
+train_files: ['mem_dials_gpt2_train.json','mem_dials_gpt2_test.json', 'mem_dials_gpt2_test.json']
+memory_files: ['memory_may21_v1_100graphs.json', 'mscoco_memory_graphs_1k.json']
+
+# set pretrained as a file path or an url
+pretrained: 'https://storage.googleapis.com/sfr-vision-language-research/BLIP/models/model_base_vqa_capfilt_large.pth'
+
+# size of vit model; base or large
+vit: 'base'
+batch_size_train: 2
+batch_size_test: 2
+vit_grad_ckpt: False
+vit_ckpt_layer: 0
+init_lr: 2e-5
+
+image_size: 480
+
+# generation configs
+inference: 'generate'
+max_length: 20  
+min_length: 5
+num_beams: 3
+
+# optimizer
+weight_decay: 0.05
+min_lr: 0
+max_epoch: 10
