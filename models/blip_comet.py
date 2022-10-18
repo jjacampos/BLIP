@@ -2,6 +2,7 @@ from models.med import BertConfig, BertModel, BertLMHeadModel
 from models.blip import create_vit, init_tokenizer, load_checkpoint
 
 import torch
+import pdb
 from torch import nn
 import torch.nn.functional as F
 from transformers import BertTokenizer
@@ -38,7 +39,7 @@ class BLIP_COMET(nn.Module):
         self.text_decoder = BertLMHeadModel(config=decoder_config)
         self.text_decoder.resize_token_embeddings(len(self.tokenizer))
 
-    def forward(self, images, predict, images_mask, target=None, n=None, train=True):
+    def forward(self, images, predict, images_mask, target=None, n=None, evaluate=True, use_images=True):
         images_mask = images_mask.to(images.device).unsqueeze(-1)
         #Get visual features
         B, N, C, W, H = images.size()
@@ -53,41 +54,46 @@ class BLIP_COMET(nn.Module):
         image_embeds = image_embeds.view(B, -1, features_shape)
         
         image_atts = torch.ones(image_embeds.size()[:-1],dtype=torch.long).to(images.device)
-        
-        predict = self.tokenizer(predict, padding='longest', truncation=True, max_length=35, 
-                                  return_tensors="pt").to(images.device)
-        
+            
+        predict = self.tokenizer(predict, padding='longest',return_tensors="pt").to(images.device)
         predict.input_ids[:,0] = self.tokenizer.enc_token_id
-        
-        if train:               
-            target = self.tokenizer(target, padding='longest', return_tensors="pt").to(images.device) 
-            target.input_ids[:,0] = self.tokenizer.bos_token_id
-            targets = target.input_ids.masked_fill(target.input_ids == self.tokenizer.pad_token_id, -100)      
+        target = self.tokenizer(target, padding='longest', return_tensors="pt").to(images.device) 
+        target.input_ids[:,0] = self.tokenizer.bos_token_id
+        targets = target.input_ids.masked_fill(target.input_ids == self.tokenizer.pad_token_id, -100)      
 
+        if use_images:
             predict_output = self.text_encoder(predict.input_ids, 
-                                                attention_mask = predict.attention_mask, 
-                                                encoder_hidden_states = image_embeds,
-                                                encoder_attention_mask = image_atts,                             
-                                                return_dict = True)    
+                                           attention_mask = predict.attention_mask, 
+                                           encoder_hidden_states = image_embeds,
+                                           encoder_attention_mask = image_atts,
+                                           return_dict = True)
 
-            predict_states = predict_output.last_hidden_state
-            predict_atts = predict.attention_mask
+        else:
+            image_atts = torch.zeros(image_embeds.size()[:-1],dtype=torch.long).to(images.device)            
+            predict_output = self.text_encoder(predict.input_ids,
+                                           encoder_hidden_states = image_embeds,
+                                           encoder_attention_mask = image_atts,
+                                           attention_mask = predict.attention_mask, 
+                                           return_dict = True)
 
-            target_output = self.text_decoder(target.input_ids, 
-                                              attention_mask = target.attention_mask, 
-                                              encoder_hidden_states = predict_states,
-                                              encoder_attention_mask = predict_atts,                 
-                                              labels = targets,
-                                              return_dict = True,   
-                                              reduction = 'none',
-                                             )      
+
+        predict_states = predict_output.last_hidden_state
+        predict_atts = predict.attention_mask
+
+        target_output = self.text_decoder(target.input_ids, 
+                                          attention_mask = target.attention_mask, 
+                                          encoder_hidden_states = predict_states,
+                                          encoder_attention_mask = predict_atts,
+                                          labels = targets,
+                                          return_dict = True,   
+                                          reduction = 'none')
             
-            loss = target_output.loss
-            loss = loss.mean()
+        loss = target_output.loss
+        loss = loss.mean()
 
-            return loss
-            
-        else: 
+        output = {'loss': loss}
+        
+        if evaluate:
             predict_output = self.text_encoder(predict.input_ids, 
                                                 attention_mask = predict.attention_mask, 
                                                 encoder_hidden_states = image_embeds,
@@ -101,7 +107,7 @@ class BLIP_COMET(nn.Module):
                 
             bos_ids = torch.full((image_embeds.size(0),1),fill_value=self.tokenizer.bos_token_id,device=images.device)
                 
-            outputs = self.text_decoder.generate(input_ids=bos_ids,
+            generations = self.text_decoder.generate(input_ids=bos_ids,
                                                      max_length=10,
                                                      min_length=1,
                                                      num_beams=num_beams,
@@ -109,11 +115,13 @@ class BLIP_COMET(nn.Module):
                                                      pad_token_id=self.tokenizer.pad_token_id, 
                                                      **model_kwargs)
                 
-            answers = []    
-            for output in outputs:
-                answer = self.tokenizer.decode(output, skip_special_tokens=True)    
+            answers = []
+            for generation in generations:
+                answer = self.tokenizer.decode(generation)    
                 answers.append(answer)
-            return answers
+            output['answers'] = answers
+
+        return output
  
                 
                 

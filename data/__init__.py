@@ -10,6 +10,7 @@ from data.vqa_dataset import vqa_dataset
 from data.nlvr_dataset import nlvr_dataset
 from data.pretrain_dataset import pretrain_dataset
 from transform.randaugment import RandomAugment
+from data.comet_dataset import MemoryDialogDataset
 
 def create_dataset(dataset, config, min_scale=0.5):
     
@@ -67,7 +68,18 @@ def create_dataset(dataset, config, min_scale=0.5):
         val_dataset = nlvr_dataset(transform_test, config['image_root'], config['ann_root'],'val')
         test_dataset = nlvr_dataset(transform_test, config['image_root'], config['ann_root'],'test')     
         return train_dataset, val_dataset, test_dataset   
-    
+
+    elif dataset=='comet':
+        train_dataset = MemoryDialogDataset(transform_train, config['comet_root'], config['coco_root'], config['coco_anns'], config['train_files'], config['memory_files'], 'train')
+        val_dataset = MemoryDialogDataset(transform_test, config['comet_root'], config['coco_root'], config['coco_anns'], config['train_files'], config['memory_files'], 'val')
+        test_dataset = MemoryDialogDataset(transform_test, config['comet_root'], config['coco_root'], config['coco_anns'], config['train_files'], config['memory_files'], 'test')
+        return train_dataset, val_dataset, test_dataset   
+
+    elif dataset=='simmc': 
+        train_dataset = nlvr_dataset(transform_train, config['image_root'], config['ann_root'],'train')
+        val_dataset = nlvr_dataset(transform_test, config['image_root'], config['ann_root'],'val')
+        test_dataset = nlvr_dataset(transform_test, config['image_root'], config['ann_root'],'test')     
+        return train_dataset, val_dataset, test_dataset   
     
 def create_sampler(datasets, shuffles, num_tasks, global_rank):
     samplers = []

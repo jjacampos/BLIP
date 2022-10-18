@@ -9,8 +9,8 @@ pretrained: 'https://storage.googleapis.com/sfr-vision-language-research/BLIP/mo
 
 # size of vit model; base or large
 vit: 'base'
-batch_size_train: 2
-batch_size_test: 2
+batch_size_train: 4
+batch_size_test: 8
 vit_grad_ckpt: False
 vit_ckpt_layer: 0
 init_lr: 2e-5
@@ -19,7 +19,7 @@ image_size: 480
 
 # generation configs
 inference: 'generate'
-max_length: 20  
+max_length: 50  
 min_length: 5
 num_beams: 3
 
